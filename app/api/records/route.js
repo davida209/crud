@@ -1,19 +1,22 @@
-import { pool } from '@/lib/db';
+import pool from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const [rows] = await pool.query('SELECT * FROM registros ORDER BY id DESC');
-  return NextResponse.json(rows);
+  try {
+    const [rows] = await pool.query('SELECT * FROM records ORDER BY id DESC');
+    return NextResponse.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json([], { status: 500 });
+  }
 }
 
-export async function POST(req) {
-  const { content } = await req.json();
-  await pool.query('INSERT INTO registros (content) VALUES (?)', [content]);
-  return NextResponse.json({ ok: true });
-}
-
-export async function DELETE(req) {
-  const { id } = await req.json();
-  await pool.query('DELETE FROM registros WHERE id = ?', [id]);
-  return NextResponse.json({ ok: true });
+export async function POST(request) {
+  try {
+    const { content } = await request.json();
+    await pool.query('INSERT INTO records (content) VALUES (?)', [content]);
+    return NextResponse.json({ message: 'Creado' }, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
