@@ -1,45 +1,83 @@
 'use client';
-import { useState } from 'react';
-import { createRecord } from './actions';
 
-export default function SecurityPage() {
-  const [msg, setMsg] = useState('');
+import { useState, useEffect } from 'react';
+import { createRecord } from './actions'; // Importación corregida
 
-  async function clientAction(formData: FormData) {
-    setMsg('Procesando...');
-    const res = await createRecord(formData);
-    if (res?.error) {
-      setMsg(res.error);
+export default function BitacoraPage() {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
+  const fetchItems = async () => {
+    try {
+      const res = await fetch('/api/records');
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  async function handleSubmit(formData: FormData) {
+    setMessage('Procesando...');
+    const result = await createRecord(formData);
+
+    if (result?.error) {
+      setMessage(result.error);
     } else {
-      setMsg('Registro exitoso.');
-      (document.getElementById('secure-form') as HTMLFormElement).reset();
+      setMessage('Registro exitoso.');
+      const form = document.getElementById('record-form') as HTMLFormElement;
+      form.reset();
+      fetchItems();
     }
   }
 
   return (
-    <main className="min-h-screen bg-[#f9f8f4] p-10 font-sans">
-      <div className="max-w-md mx-auto bg-white p-8 rounded-3xl shadow-sm border border-[#e2e1d5]">
-        <form id="secure-form" action={clientAction} className="space-y-6">
-          
-          {/* HONEYPOT: Invisible para humanos, trampa para bots */}
-          <input type="text" name="hp_field" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
-          
-          {/* TOKEN DINÁMICO: Se invalida después de 2 minutos */}
-          <input type="hidden" name="auth_ts" value={Date.now()} />
+    <main className="min-h-screen bg-[#f9f8f4] text-[#4a4a44] p-6">
+      <div className="max-w-xl mx-auto py-16">
+        <header className="mb-12 border-b border-[#e2e1d5] pb-6 text-center">
+          <h1 className="text-xs tracking-[0.3em] uppercase text-[#a3a292] font-bold mb-3">Bitácora de Registro</h1>
+          {message && (
+            <p className={`mt-2 text-[10px] font-bold uppercase ${message.includes('error') || message.includes('ESPERA') ? 'text-red-400' : 'text-green-500'}`}>
+              {message}
+            </p>
+          )}
+        </header>
 
-          <div className="relative">
-            <input 
-              name="content" 
-              required
-              placeholder="Escribir nota..." 
-              className="w-full p-4 pr-24 rounded-2xl bg-[#f1f0e8] border-none outline-none focus:ring-2 focus:ring-[#6b6a5d] transition-all"
-            />
-            <button type="submit" className="absolute right-2 top-2 bg-[#6b6a5d] text-white px-4 py-2 rounded-xl text-xs font-bold uppercase hover:bg-[#4a4a44]">
-              Añadir
-            </button>
-          </div>
+        <form id="record-form" action={handleSubmit} className="relative mb-16">
+          {/* Honeypot invisible para bots */}
+          <input type="text" name="website_url" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+          
+          <input
+            name="content"
+            type="text"
+            required
+            placeholder="Escribe algo..."
+            className="w-full bg-[#f1f0e8] border border-[#e2e1d5] rounded-full py-4 px-6 outline-none focus:border-[#c2c1ad] transition-all"
+          />
+          <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 bg-[#6b6a5d] text-white text-[10px] uppercase px-5 py-2 rounded-full font-bold">
+            Añadir
+          </button>
         </form>
-        {msg && <p className="mt-4 text-center text-[10px] uppercase tracking-widest font-bold text-[#a3a292]">{msg}</p>}
+
+        <div className="space-y-4">
+          {loading ? (
+            <p className="text-center text-xs text-[#a3a292] animate-pulse">Sincronizando...</p>
+          ) : (
+            items.map((item) => (
+              <div key={item.id} className="bg-[#f1f0e8] p-5 rounded-2xl flex justify-between items-start border border-transparent hover:border-[#e2e1d5] transition-all">
+                <p className="text-sm text-[#5a594e]">{item.content}</p>
+                <span className="text-[9px] text-[#a3a292] uppercase ml-4">ID {item.id}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </main>
   );
