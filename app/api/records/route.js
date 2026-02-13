@@ -1,19 +1,19 @@
 import pool from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-// Memoria para el límite de 1 envío por minuto
-const lastActionMap = new Map();
+// Diccionario en memoria para rastrear el tiempo de la última publicación
+const registrosDeTiempo = new Map();
 
-function canUserPost(ip) {
-  const now = Date.now();
-  const cooldown = 60 * 1000; // 60 segundos exactos
+function usuarioPuedePublicar(ip) {
+  const ahora = Date.now();
+  const tiempoDeEspera = 60 * 1000; // 60 segundos
 
-  if (!lastActionMap.has(ip)) {
+  if (!registrosDeTiempo.has(ip)) {
     return true;
   }
 
-  const lastTime = lastActionMap.get(ip);
-  return (now - lastTime) >= cooldown;
+  const ultimaVez = registrosDeTiempo.get(ip);
+  return (ahora - ultimaVez) >= tiempoDeEspera;
 }
 
 export async function GET() {
@@ -26,12 +26,11 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+  const ip = request.headers.get('x-forwarded-for') || 'anonimo';
 
-  // Bloqueo si no ha pasado el minuto
-  if (!canUserPost(ip)) {
+  if (!usuarioPuedePublicar(ip)) {
     return NextResponse.json(
-      { error: 'Espera un minuto entre cada publicación.' }, 
+      { error: 'Por favor, espera un minuto entre cada publicación.' }, 
       { status: 429 }
     );
   }
@@ -40,10 +39,10 @@ export async function POST(request) {
     const { content } = await request.json();
     await pool.query('INSERT INTO records (content) VALUES (?)', [content]);
     
-    // Registrar el tiempo exacto del envío exitoso
-    lastActionMap.set(ip, Date.now());
+    // Guardar el momento exacto del éxito
+    registrosDeTiempo.set(ip, Date.now());
     
-    return NextResponse.json({ message: 'Creado' }, { status: 201 });
+    return NextResponse.json({ message: 'Registrado correctamente' }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
