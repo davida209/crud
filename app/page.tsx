@@ -44,7 +44,7 @@ export default function CrudPage() {
 
   return (
     <main className="min-h-screen bg-[#f9f8f4] p-4 md:p-12 text-[#4a4a44] font-sans flex flex-col items-center">
-      <div className="max-w-4xl w-full flex-grow">
+      <div className="max-w-3xl w-full flex-grow">
         
         <header className="mb-12 text-center border-b border-[#e2e1d5] pb-8">
           <h2 className="text-4xl font-serif italic text-[#6b6a5d]">CRUD Formulario</h2>
@@ -58,7 +58,7 @@ export default function CrudPage() {
           )}
         </header>
 
-        {/* Formulario Principal */}
+        {/* Formulario */}
         <form onSubmit={handleSubmit} className="relative mb-16">
           <input type="text" name="website_url" style={{ display: 'none' }} tabIndex={-1} />
           <input
@@ -74,48 +74,47 @@ export default function CrudPage() {
           </button>
         </form>
 
-        {/* Grid de Registros */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Lista en UNA SOLA COLUMNA */}
+        <div className="space-y-4">
           {items.map((item) => (
-            <div key={item.id} className="bg-white p-6 rounded-2xl flex justify-between items-start border border-[#e2e1d5] hover:border-[#c2c1ad] transition-all shadow-sm">
-              <div className="flex-1 pr-4">
-                <p className="text-sm text-[#5a594e] leading-relaxed mb-3">{item.content}</p>
+            <div key={item.id} className="bg-white p-6 rounded-2xl flex justify-between items-center border border-[#e2e1d5] hover:border-[#c2c1ad] transition-all shadow-sm w-full">
+              <div className="flex-1 pr-6">
+                <p className="text-sm text-[#5a594e] leading-relaxed mb-2">{item.content}</p>
                 <p className="text-[9px] text-[#a3a292] font-mono uppercase">ID: {item.id}</p>
               </div>
-              <div className="flex flex-col gap-3">
-                <button onClick={() => { setEditingId(item.id); setEntry(item.content); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="text-[10px] font-bold text-blue-400 uppercase">Editar</button>
-                <button onClick={async () => { if(confirm('¿Borrar?')) { await deleteRecord(item.id); fetchItems(); } }} className="text-[10px] font-bold text-red-300 uppercase">Borrar</button>
+              <div className="flex gap-6">
+                <button onClick={() => { setEditingId(item.id); setEntry(item.content); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="text-[10px] font-bold text-blue-400 hover:text-blue-600 uppercase">Editar</button>
+                <button onClick={async () => { if(confirm('¿Borrar?')) { await deleteRecord(item.id); fetchItems(); } }} className="text-[10px] font-bold text-red-300 hover:text-red-500 uppercase">Borrar</button>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* FOOTER CON EL HACKER */}
-      <footer className="w-full max-w-4xl mt-20 border-t border-[#e2e1d5] pt-12 pb-12">
+      {/* Footer con GIF funcional */}
+      <footer className="w-full max-w-3xl mt-24 border-t border-[#e2e1d5] pt-12 pb-16">
         <div className="flex flex-col md:flex-row items-center justify-between gap-12">
           
           <div className="flex flex-col gap-4 text-center md:text-left">
-            <p className="text-[10px] uppercase tracking-[0.4em] text-[#c2c1ad] font-bold">Desarrollado por</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-[#c2c1ad] font-bold">Integrantes</p>
             <div className="space-y-3">
-              <div className="bg-white border border-[#f1f0e8] px-8 py-4 rounded-2xl shadow-sm">
-                <p className="text-md font-serif italic text-[#6b6a5d]">Lester David Uicab Gongora</p>
+              <div className="bg-white border border-[#f1f0e8] px-6 py-3 rounded-xl shadow-sm">
+                <p className="text-sm font-serif italic text-[#6b6a5d]">Lester David Uicab Gongora</p>
               </div>
-              <div className="bg-white border border-[#f1f0e8] px-8 py-4 rounded-2xl shadow-sm">
-                <p className="text-md font-serif italic text-[#6b6a5d]">Karem Borges Correa</p>
+              <div className="bg-white border border-[#f1f0e8] px-6 py-3 rounded-xl shadow-sm">
+                <p className="text-sm font-serif italic text-[#6b6a5d]">Karem Borges Correa</p>
               </div>
             </div>
           </div>
 
-          <div className="relative group">
-            {/* Contenedor del Hacker */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#6b6a5d] to-[#c2c1ad] rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="flex flex-col items-center gap-4">
+            {/* GIF DIRECTO DE GIPHY (Hacker Laptop) */}
             <img 
-              src="/hacker.jpg" 
-              alt="Hacker Meme" 
-              className="relative w-40 h-40 object-cover rounded-2xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
+              src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmpsZzB3eXN6ZzF3eXN6ZzF3eXN6ZzF3eXN6ZzF3eXN6ZzF3JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/L20mbc7yBG43BdBIEa/giphy.gif" 
+              alt="Hacker GIF" 
+              className="w-32 h-32 object-cover rounded-2xl shadow-xl grayscale hover:grayscale-0 transition-all duration-700"
             />
-            <p className="mt-4 text-center text-[9px] tracking-[0.6em] text-[#a3a292] uppercase font-bold">
+            <p className="text-[9px] tracking-[0.6em] text-[#a3a292] uppercase font-bold">
               v2.0 &bull; 2026
             </p>
           </div>
