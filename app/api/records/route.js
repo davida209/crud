@@ -1,44 +1,52 @@
 import pool from '@/lib/db';
 import { NextResponse } from 'next/server';
 
+// Memoria para rastrear IPs y tiempos (Límite por persona)
+const ipTracker = new Map();
+
 export async function GET() {
   try {
     const [rows] = await pool.query('SELECT * FROM records ORDER BY id DESC LIMIT 50');
-    return NextResponse.json(Array.isArray(rows) ? rows : []);
+    return NextResponse.json(rows);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(request) {
-  try {
-    // BLOQUEO ANTISPAM: Verificar el tiempo del último mensaje global
-    const [lastEntry] = await pool.query(
-      'SELECT created_at FROM records ORDER BY created_at DESC LIMIT 1'
-    );
+  // 1. Obtener la IP real del usuario
+  const ip = request.headers.get('x-forwarded-for') || 'anonymous';
+  const now = Date.now();
+  const cooldown = 60 * 1000; // 60 segundos de espera
 
-    if (lastEntry.length > 0) {
-      const lastTime = new Date(lastEntry[0].created_at).getTime();
-      const now = Date.now();
-      const diff = (now - lastTime) / 1000;
+  // 2. Verificar si esta IP ya publicó recientemente
+  if (ipTracker.has(ip)) {
+    const lastPostTime = ipTracker.get(ip);
+    const timeDiff = now - lastPostTime;
 
-      if (diff < 60) { // Si han pasado menos de 60 segundos
-        return NextResponse.json(
-          { error: `Espera ${Math.ceil(60 - diff)} segundos.` }, 
-          { status: 429 }
-        );
-      }
+    if (timeDiff < cooldown) {
+      const secondsLeft = Math.ceil((cooldown - timeDiff) / 1000);
+      return NextResponse.json(
+        { error: `Demasiado rápido. Espera ${secondsLeft} segundos.` },
+        { status: 429 }
+      );
     }
+  }
 
+  try {
     const { content } = await request.json();
-    
-    // Validación extra: si el contenido es muy largo o repetitivo, bloquear
-    if (!content || content.length > 200) {
-      return NextResponse.json({ error: 'Contenido no válido' }, { status: 400 });
+
+    // 3. Validación básica de contenido para evitar textos gigantes
+    if (!content || content.length > 300) {
+      return NextResponse.json({ error: 'Texto demasiado largo o vacío' }, { status: 400 });
     }
 
     await pool.query('INSERT INTO records (content) VALUES (?)', [content]);
-    return NextResponse.json({ message: 'OK' }, { status: 201 });
+    
+    // 4. Actualizar el rastro de la IP después de un éxito
+    ipTracker.set(ip, now);
+
+    return NextResponse.json({ message: 'Registrado' }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
