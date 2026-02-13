@@ -4,55 +4,36 @@ import pool from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
 export async function createRecord(formData: FormData) {
-  // 1. TRAMPA HONEYPOT
-  // Si este campo viene lleno, es un bot (porque es invisible para humanos)
-  const botTrap = formData.get('website_url');
-  if (botTrap) {
-    return { error: 'Acceso denegado: Actividad sospechosa detectada.' };
-  }
-
+  if (formData.get('website_url')) return { error: 'Bot detectado' };
   const content = formData.get('content') as string;
-  
-  // 2. VALIDACIÓN DE CONTENIDO BÁSICA
-  if (!content || content.trim().length === 0) {
-    return { error: 'El contenido no puede estar vacío.' };
-  }
-
-  // Filtro contra los ataques que recibiste
-  if (content.toLowerCase().includes('ataque') || content.toLowerCase().includes('bot')) {
-    return { error: 'Contenido bloqueado por las reglas de seguridad.' };
-  }
-
   const now = Date.now();
-  const cooldown = 60 * 1000; // 60 segundos
 
   try {
-    // 3. RATE LIMIT REAL DESDE LA BASE DE DATOS
-    // Buscamos el último registro en MySQL para comparar el tiempo
-    const [lastRows]: any = await pool.query(
-      'SELECT created_at FROM records ORDER BY created_at DESC LIMIT 1'
-    );
-
+    const [lastRows]: any = await pool.query('SELECT created_at FROM records ORDER BY created_at DESC LIMIT 1');
     if (lastRows.length > 0) {
-      const lastTime = new Date(lastRows[0].created_at).getTime();
-      const diff = now - lastTime;
-
-      if (diff < cooldown) {
-        const secondsLeft = Math.ceil((cooldown - diff) / 1000);
-        return { error: `SISTEMA PROTEGIDO. Espera ${secondsLeft} segundos para publicar.` };
-      }
+      const diff = now - new Date(lastRows[0].created_at).getTime();
+      if (diff < 60000) return { error: `Espera ${Math.ceil((60000 - diff) / 1000)}s` };
     }
-
-    // 4. INSERCIÓN SEGURA (Consulta preparada)
     await pool.query('INSERT INTO records (content) VALUES (?)', [content.trim()]);
-    
-    // 5. REVALIDACIÓN
-    // Esto limpia la caché de Next.js para que el nuevo mensaje aparezca al instante
     revalidatePath('/');
-    
     return { success: true };
-  } catch (error) {
-    console.error('Error en Action:', error);
-    return { error: 'Error de conexión con la base de datos de Aiven.' };
-  }
+  } catch (error) { return { error: 'Error de conexión' }; }
+}
+
+// NUEVA FUNCIÓN: Actualizar registro
+export async function updateRecord(id: number, content: string) {
+  try {
+    if (!content.trim()) return { error: 'El contenido no puede estar vacío.' };
+    await pool.query('UPDATE records SET content = ? WHERE id = ?', [content.trim(), id]);
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) { return { error: 'Error al actualizar' }; }
+}
+
+export async function deleteRecord(id: number) {
+  try {
+    await pool.query('DELETE FROM records WHERE id = ?', [id]);
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) { return { error: 'Error al eliminar' }; }
 }
