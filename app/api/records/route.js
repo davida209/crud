@@ -1,28 +1,19 @@
 import pool from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-// Rate limit simple en memoria
-const rateLimitMap = new Map();
+// Memoria para el límite de 1 envío por minuto
+const lastActionMap = new Map();
 
-function checkRateLimit(ip) {
+function canUserPost(ip) {
   const now = Date.now();
-  const limit = 10; // peticiones
-  const windowMs = 60 * 1000; // 1 minuto
+  const cooldown = 60 * 1000; // 60 segundos exactos
 
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, { count: 1, last: now });
+  if (!lastActionMap.has(ip)) {
     return true;
   }
 
-  const tracker = rateLimitMap.get(ip);
-  if (now - tracker.last > windowMs) {
-    tracker.count = 1;
-    tracker.last = now;
-    return true;
-  }
-
-  tracker.count++;
-  return tracker.count <= limit;
+  const lastTime = lastActionMap.get(ip);
+  return (now - lastTime) >= cooldown;
 }
 
 export async function GET() {
@@ -36,13 +27,22 @@ export async function GET() {
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for') || 'anonymous';
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: 'Límite de velocidad excedido' }, { status: 429 });
+
+  // Bloqueo si no ha pasado el minuto
+  if (!canUserPost(ip)) {
+    return NextResponse.json(
+      { error: 'Espera un minuto entre cada publicación.' }, 
+      { status: 429 }
+    );
   }
 
   try {
     const { content } = await request.json();
     await pool.query('INSERT INTO records (content) VALUES (?)', [content]);
+    
+    // Registrar el tiempo exacto del envío exitoso
+    lastActionMap.set(ip, Date.now());
+    
     return NextResponse.json({ message: 'Creado' }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
