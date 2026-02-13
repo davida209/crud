@@ -3,53 +3,41 @@
 import pool from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 
-// Usamos un objeto global para el rate limit (en producción se usaría Redis, pero esto es más robusto que la API)
-const rateLimitMap = new Map<string, number>();
-
 export async function createRecord(formData: FormData) {
-  const content = formData.get('content') as string;
-  
-  // 1. Validación básica
-  if (!content || content.trim().length === 0) {
-    return { error: 'El contenido no puede estar vacío.' };
+  // 1. TRAMPA HONEYPOT
+  const botTrap = formData.get('website_url'); // Campo que los humanos no ven
+  if (botTrap) {
+    console.log("Bot detectado por Honeypot");
+    return { error: 'Acceso denegado.' };
   }
 
-  // 2. Rate Limit Estricto (1 minuto)
-  // Nota: En Vercel, tratamos de obtener la IP desde los headers
+  // 2. TOKEN DE TIEMPO (Evita que Burp Suite repita peticiones viejas)
+  const token = formData.get('auth_token');
   const now = Date.now();
-  const cooldown = 60 * 1000;
-  
-  // Simulamos un identificador (en Server Actions es mejor usar cookies o una IP fija si está disponible)
-  const lastPost = rateLimitMap.get('global_user'); // Límite global temporal para frenar bots
-
-  if (lastPost && (now - lastPost < cooldown)) {
-    const secondsLeft = Math.ceil((cooldown - (now - lastPost)) / 1000);
-    return { error: `Demasiado rápido. Espera ${secondsLeft} segundos.` };
+  if (!token || (now - parseInt(token.toString())) > 300000) { // 5 minutos de validez
+    return { error: 'Sesión expirada. Recarga la página.' };
   }
 
+  const content = formData.get('content') as string;
+  if (!content || content.trim().length === 0) return { error: 'Contenido vacío' };
+
   try {
-    // 3. Insertar en MySQL
+    // 3. RATE LIMIT EN BASE DE DATOS (El último escudo)
+    const [lastRows]: any = await pool.query(
+      'SELECT created_at FROM records ORDER BY created_at DESC LIMIT 1'
+    );
+
+    if (lastRows.length > 0) {
+      const lastTime = new Date(lastRows[0].created_at).getTime();
+      if (now - lastTime < 60000) {
+        return { error: 'Espera un minuto.' };
+      }
+    }
+
     await pool.query('INSERT INTO records (content) VALUES (?)', [content.trim()]);
-    
-    // 4. Actualizar tiempo del último post
-    rateLimitMap.set('global_user', now);
-    
-    // 5. Refrescar la página automáticamente
-    revalidatePath('/');
-    
-    return { success: true };
-  } catch (error) {
-    console.error('Error en Action:', error);
-    return { error: 'Error al conectar con la base de datos.' };
-  }
-}
-
-export async function deleteRecord(id: number) {
-  try {
-    await pool.query('DELETE FROM records WHERE id = ?', [id]);
     revalidatePath('/');
     return { success: true };
   } catch (error) {
-    return { error: 'No se pudo eliminar.' };
+    return { error: 'Error de servidor' };
   }
 }
